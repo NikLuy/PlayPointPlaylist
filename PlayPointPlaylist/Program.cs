@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PlayPointPlaylist.Components;
 using PlayPointPlaylist.Data;
 using PlayPointPlaylist.Services;
@@ -18,6 +18,7 @@ builder.Services.AddSingleton<YouTubeApiService>();
 builder.Services.AddScoped<QueueService>();
 builder.Services.AddScoped<EventService>();
 builder.Services.AddScoped<VoterIdentifierService>();
+builder.Services.AddScoped<AdminAuthService>();
 
 // HTTP Context for IP detection
 builder.Services.AddHttpContextAccessor();

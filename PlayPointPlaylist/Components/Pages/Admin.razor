@@ -1,10 +1,10 @@
-@page "/admin"
+Ôªø@page "/admin"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using PlayPointPlaylist.Services
 @using PlayPointPlaylist.Models
 @inject EventService EventService
 @inject QueueService QueueService
-@inject IConfiguration Configuration
+@inject AdminAuthService AuthService
 @inject NavigationManager NavigationManager
 
 <PageTitle>Admin - PlayPointPlaylist</PageTitle>
@@ -12,11 +12,19 @@
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-lg-10">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="h3 mb-0"><i class="bi bi-shield-lock me-2"></i>Admin-Bereich</h1>
-                <a href="/" class="btn btn-outline-secondary">
-                    <i class="bi bi-house me-2"></i>Zur¸ck
-                </a>
+                <div>
+                    @if (isAuthenticated)
+                    {
+                        <button class="btn btn-outline-warning me-2" @onclick="HandleLogout">
+                            <i class="bi bi-box-arrow-right me-2"></i>Abmelden
+                        </button>
+                    }
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="bi bi-house me-2"></i>Zur√ºck
+                    </a>
+                </div>
             </div>
             
             @if (!isAuthenticated)
@@ -170,7 +178,7 @@
                                                         </button>
                                                         <button class="btn btn-sm btn-outline-danger" 
                                                                 @onclick="() => DeleteEvent(evt.Id)"
-                                                                title="Lˆschen">
+                                                                title="L√∂schen">
                                                             <i class="bi bi-trash"></i>
                                                         </button>
                                                     </div>
@@ -243,16 +251,16 @@
                                                             </h6>
                                                             <small class="text-muted">
                                                                 @item.Artist
-                                                                <span class="mx-2">ï</span>
+                                                                <span class="mx-2">‚Ä¢</span>
                                                                 @FormatDuration(item.DurationSeconds)
                                                                 @if (!string.IsNullOrEmpty(item.RequestedBy))
                                                                 {
-                                                                    <span class="mx-2">ï</span>
+                                                                    <span class="mx-2">‚Ä¢</span>
                                                                     <i class="bi bi-person-fill"></i> @item.RequestedBy
                                                                 }
                                                                 @if (!item.IsPlayed && (item.UpVotes > 0 || item.DownVotes > 0))
                                                                 {
-                                                                    <span class="mx-2">ï</span>
+                                                                    <span class="mx-2">‚Ä¢</span>
                                                                     <i class="bi bi-hand-thumbs-up-fill text-success"></i> @item.UpVotes
                                                                     <span class="mx-1">|</span>
                                                                     <i class="bi bi-hand-thumbs-down-fill text-danger"></i> @item.DownVotes
@@ -268,7 +276,7 @@
                                                             }
                                                             <button class="btn btn-sm btn-outline-danger" 
                                                                     @onclick="() => DeleteSongFromPlaylist(item.Id)"
-                                                                    title="Lˆschen">
+                                                                    title="L√∂schen">
                                                                 <i class="bi bi-trash"></i>
                                                             </button>
                                                         </div>
@@ -280,7 +288,7 @@
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" @onclick="ClosePlaylistManager">
-                                        Schlieﬂen
+                                        Schlie√üen
                                     </button>
                                 </div>
                             </div>
@@ -305,19 +313,10 @@ private bool showPlaylistModal = false;
 private Event? selectedEvent;
 private List<QueueItem> playlistItems = new();
     
-// Simple in-memory authentication (for demo purposes)
-// In production, use proper authentication with cookies/JWT
-private static readonly Dictionary<string, DateTime> AuthSessions = new();
-private static readonly TimeSpan SessionTimeout = TimeSpan.FromHours(2);
-private string sessionId = string.Empty;
-    
 protected override async Task OnInitializedAsync()
 {
-    // Generate or retrieve session ID
-    sessionId = Guid.NewGuid().ToString();
-        
-    // Check if there's an active authenticated session
-    CheckAuthentication();
+    // Check if user is authenticated using session storage
+    isAuthenticated = await AuthService.IsAuthenticatedAsync();
         
     if (isAuthenticated)
     {
@@ -325,37 +324,29 @@ protected override async Task OnInitializedAsync()
     }
 }
     
-private void CheckAuthentication()
-{
-    // Clean up expired sessions
-    var expiredSessions = AuthSessions.Where(s => DateTime.UtcNow - s.Value > SessionTimeout).ToList();
-    foreach (var expired in expiredSessions)
-    {
-        AuthSessions.Remove(expired.Key);
-    }
-        
-    // Check if any active session exists (simple approach for demo)
-    isAuthenticated = AuthSessions.Any(s => DateTime.UtcNow - s.Value <= SessionTimeout);
-}
-    
 private async Task HandleLogin()
 {
-    var adminPassword = Configuration["AdminSettings:Password"];
-    if (loginModel.Password == adminPassword)
+    var success = await AuthService.LoginAsync(loginModel.Password);
+    
+    if (success)
     {
         isAuthenticated = true;
         errorMessage = string.Empty;
-            
-        // Store authenticated session
-        sessionId = Guid.NewGuid().ToString();
-        AuthSessions[sessionId] = DateTime.UtcNow;
-            
+        loginModel.Password = string.Empty;
         await LoadEvents();
     }
     else
     {
         errorMessage = "Falsches Passwort!";
     }
+}
+
+private async Task HandleLogout()
+{
+    await AuthService.LogoutAsync();
+    isAuthenticated = false;
+    events.Clear();
+    NavigationManager.NavigateTo("/admin", forceLoad: true);
 }
     
     private async Task LoadEvents()

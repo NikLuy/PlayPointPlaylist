@@ -1,14 +1,24 @@
-@page "/admin/play/{uid}"
+ï»¿@page "/admin/play/{uid}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using PlayPointPlaylist.Services
 @using PlayPointPlaylist.Models
 @inject QueueService QueueService
 @inject EventService EventService
+@inject AdminAuthService AuthService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Host-Steuerung</PageTitle>
 
 <div class="container-fluid py-4">
-    @if (currentEvent == null)
+    @if (!isAuthenticated)
+    {
+        <div class="alert alert-warning">
+            <i class="bi bi-shield-lock me-2"></i>
+            <strong>Zugriff verweigert!</strong> Bitte melde dich als Admin an.
+            <a href="/admin" class="btn btn-sm btn-primary ms-3">Zum Login</a>
+        </div>
+    }
+    else if (currentEvent == null)
     {
         <div class="alert alert-danger">
             <i class="bi bi-exclamation-triangle me-2"></i>Event nicht gefunden!
@@ -23,7 +33,7 @@
                         <i class="bi bi-play-circle me-2"></i>Host-Steuerung: @currentEvent.Name
                     </h1>
                     <a href="/admin" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-2"></i>Zurück
+                        <i class="bi bi-arrow-left me-2"></i>ZurÃ¼ck
                     </a>
                 </div>
                 
@@ -41,17 +51,17 @@
                                     <h4 class="mb-2">@currentSong.Title</h4>
                                     <p class="text-muted mb-3">
                                         <i class="bi bi-person-circle me-1"></i>@currentSong.Artist
-                                        <span class="mx-2">•</span>
+                                        <span class="mx-2">â€¢</span>
                                         <i class="bi bi-clock me-1"></i>@FormatDuration(currentSong.DurationSeconds)
                                     </p>
                                     @if (!string.IsNullOrEmpty(currentSong.RequestedBy))
                                     {
                                         <p class="text-muted">
-                                            <i class="bi bi-person-fill me-1"></i>Gewünscht von: <strong>@currentSong.RequestedBy</strong>
+                                            <i class="bi bi-person-fill me-1"></i>GewÃ¼nscht von: <strong>@currentSong.RequestedBy</strong>
                                         </p>
                                     }
                                     <button class="btn btn-warning btn-lg" @onclick="SkipSong">
-                                        <i class="bi bi-skip-forward-fill me-2"></i>Nächster Song
+                                        <i class="bi bi-skip-forward-fill me-2"></i>NÃ¤chster Song
                                     </button>
                                 </div>
                                 <div class="col-lg-6">
@@ -100,7 +110,7 @@
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1">@song.Title</h6>
                                                 <small class="text-muted">
-                                                    @song.Artist <span class="mx-2">•</span> @FormatDuration(song.DurationSeconds)
+                                                    @song.Artist <span class="mx-2">â€¢</span> @FormatDuration(song.DurationSeconds)
                                                 </small>
                                             </div>
                                             <div class="flex-shrink-0">
@@ -129,18 +139,27 @@
 </div>
 
 @code {
-    [Parameter]
-    public string Uid { get; set; } = string.Empty;
+[Parameter]
+public string Uid { get; set; } = string.Empty;
     
-    private Event? currentEvent;
-    private QueueItem? currentSong;
-    private List<QueueItem> upcomingSongs = new();
-    private System.Threading.Timer? refreshTimer;
+private bool isAuthenticated = false;
+private Event? currentEvent;
+private QueueItem? currentSong;
+private List<QueueItem> upcomingSongs = new();
+private System.Threading.Timer? refreshTimer;
     
-    protected override async Task OnInitializedAsync()
+protected override async Task OnInitializedAsync()
+{
+    // Check authentication first
+    isAuthenticated = await AuthService.IsAuthenticatedAsync();
+        
+    if (!isAuthenticated)
     {
-        currentEvent = await EventService.GetEventByUniqueId(Uid);
-        await LoadQueue();
+        return;
+    }
+        
+    currentEvent = await EventService.GetEventByUniqueId(Uid);
+    await LoadQueue();
         
         // Auto-refresh every 3 seconds
         refreshTimer = new System.Threading.Timer(async _ =>

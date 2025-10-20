@@ -1,4 +1,4 @@
-namespace PlayPointPlaylist.Models;
+﻿namespace PlayPointPlaylist.Models;
 
 public class QueueItem
 {

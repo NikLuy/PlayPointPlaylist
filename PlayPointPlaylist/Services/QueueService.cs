@@ -115,6 +115,40 @@ public class QueueService
         }
     }
     
+    public async Task ResetPlayedStatus(int queueItemId)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var item = await context.QueueItems.FindAsync(queueItemId);
+        if (item != null)
+        {
+            item.IsPlayed = false;
+            await context.SaveChangesAsync();
+        }
+    }
+    
+    public async Task ResetAllPlayedForEvent(string eventUid)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var evt = await context.Events
+            .FirstOrDefaultAsync(e => e.UniqueId == eventUid);
+        
+        if (evt != null)
+        {
+            var playedSongs = await context.QueueItems
+                .Where(q => q.EventId == evt.Id && q.IsPlayed)
+                .ToListAsync();
+            
+            foreach (var song in playedSongs)
+            {
+                song.IsPlayed = false;
+            }
+            
+            await context.SaveChangesAsync();
+        }
+    }
+    
     public async Task<bool> UpVote(int queueItemId, string voterIdentifier, string ipAddress)
     {
         await using var context = await _contextFactory.CreateDbContextAsync();

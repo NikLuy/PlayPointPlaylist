@@ -268,17 +268,27 @@
                                                             </small>
                                                         </div>
                                                         <div class="flex-shrink-0">
+                                                            <div class="btn-group" role="group">
+                                                                @if (item.IsPlayed)
+                                                                {
+                                                                    <button class="btn btn-sm btn-outline-success" 
+                                                                            @onclick="() => ResetPlayedStatus(item.Id)"
+                                                                            title="Als 'Nicht gespielt' markieren">
+                                                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                                                    </button>
+                                                                }
+                                                                <button class="btn btn-sm btn-outline-danger" 
+                                                                        @onclick="() => DeleteSongFromPlaylist(item.Id)"
+                                                                        title="Löschen">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            </div>
                                                             @if (item.IsPlayed)
                                                             {
-                                                                <span class="badge bg-secondary me-2">
+                                                                <span class="badge bg-secondary ms-2">
                                                                     <i class="bi bi-check-circle"></i> Gespielt
                                                                 </span>
                                                             }
-                                                            <button class="btn btn-sm btn-outline-danger" 
-                                                                    @onclick="() => DeleteSongFromPlaylist(item.Id)"
-                                                                    title="Löschen">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -287,6 +297,12 @@
                                     }
                                 </div>
                                 <div class="modal-footer">
+                                    @if (playlistItems.Any(p => p.IsPlayed))
+                                    {
+                                        <button type="button" class="btn btn-warning me-auto" @onclick="ResetAllPlayed">
+                                            <i class="bi bi-arrow-counterclockwise me-2"></i>Alle als "Nicht gespielt" markieren
+                                        </button>
+                                    }
                                     <button type="button" class="btn btn-secondary" @onclick="ClosePlaylistManager">
                                         Schließen
                                     </button>
@@ -488,6 +504,23 @@ private async Task HandleLogout()
         await QueueService.RemoveSong(songId);
         await LoadPlaylist();
         await LoadEvents(); // Refresh event list to update song count
+    }
+    
+    private async Task ResetPlayedStatus(int songId)
+    {
+        await QueueService.ResetPlayedStatus(songId);
+        await LoadPlaylist();
+        await LoadEvents(); // Refresh event list to update song count
+    }
+    
+    private async Task ResetAllPlayed()
+    {
+        if (selectedEvent != null)
+        {
+            await QueueService.ResetAllPlayedForEvent(selectedEvent.UniqueId);
+            await LoadPlaylist();
+            await LoadEvents(); // Refresh event list to update song count
+        }
     }
     
     private string FormatDuration(int seconds)

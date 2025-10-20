@@ -1,4 +1,4 @@
-# PlayPointPlaylist
+﻿# PlayPointPlaylist
 
 A Blazor-based web application for managing YouTube playlists.
 
@@ -30,6 +30,12 @@ Edit the `.env` file and provide your credentials:
 ```
 YOUTUBE_API_KEY=your_youtube_api_key_here
 ADMIN_PASSWORD=your_secure_admin_password_here
+```
+
+**Important**: If your password contains special characters like `$`, `!`, `@`, or `` ` ``, wrap it in single quotes to prevent shell variable expansion:
+
+```
+ADMIN_PASSWORD='MyP@ssw0rd$123!'
 ```
 
 ### 3. Configure Docker Compose
@@ -144,6 +150,13 @@ chmod 755 data
 
 ### Can't connect to YouTube API
 Verify your `YOUTUBE_API_KEY` in the `.env` file is correct and has the YouTube Data API v3 enabled in your Google Cloud Console.
+
+### Wrong password / Login fails
+If your admin password contains special characters (`$`, `!`, `@`, `` ` ``), make sure it's wrapped in single quotes in the `.env` file:
+```
+ADMIN_PASSWORD='F7l6mENBp$GV57WrJgrzy5U!rGE@'
+```
+Without quotes, the `$` character will be interpreted as a variable expansion by Docker Compose.
 
 ## Development
 

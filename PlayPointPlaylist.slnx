@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/Docs/">
+    <File Path="instructions.md" />
+  </Folder>
+  <Project Path="PlayPointPlaylist/PlayPointPlaylist.csproj" />
+</Solution>

@@ -1,0 +1,188 @@
+@page "/admin/play/{uid}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using PlayPointPlaylist.Services
+@using PlayPointPlaylist.Models
+@inject QueueService QueueService
+@inject EventService EventService
+
+<PageTitle>Host-Steuerung</PageTitle>
+
+<div class="container-fluid py-4">
+    @if (currentEvent == null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>Event nicht gefunden!
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h1 class="h3 mb-0">
+                        <i class="bi bi-play-circle me-2"></i>Host-Steuerung: @currentEvent.Name
+                    </h1>
+                    <a href="/admin" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Zurück
+                    </a>
+                </div>
+                
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-music-note-beamed me-2"></i>Aktueller Song
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        @if (currentSong != null)
+                        {
+                            <div class="row">
+                                <div class="col-lg-6 mb-4 mb-lg-0">
+                                    <h4 class="mb-2">@currentSong.Title</h4>
+                                    <p class="text-muted mb-3">
+                                        <i class="bi bi-person-circle me-1"></i>@currentSong.Artist
+                                        <span class="mx-2">•</span>
+                                        <i class="bi bi-clock me-1"></i>@FormatDuration(currentSong.DurationSeconds)
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(currentSong.RequestedBy))
+                                    {
+                                        <p class="text-muted">
+                                            <i class="bi bi-person-fill me-1"></i>Gewünscht von: <strong>@currentSong.RequestedBy</strong>
+                                        </p>
+                                    }
+                                    <button class="btn btn-warning btn-lg" @onclick="SkipSong">
+                                        <i class="bi bi-skip-forward-fill me-2"></i>Nächster Song
+                                    </button>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/@currentSong.YouTubeVideoId?autoplay=1" 
+                                                frameborder="0" 
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                                allowfullscreen
+                                                class="rounded">
+                                        </iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-music-note display-1 mb-3 d-block"></i>
+                                <h4>Keine Songs in der Warteschlange</h4>
+                                <p>Warte auf Anfragen von der Playlist-Seite.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+                
+                <div class="card shadow">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ul me-2"></i>Warteschlange
+                            <span class="badge bg-primary ms-2">@upcomingSongs.Count</span>
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (upcomingSongs.Any())
+                        {
+                            <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                                @foreach (var song in upcomingSongs)
+                                {
+                                    <div class="list-group-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-shrink-0 me-3">
+                                                <span class="badge bg-primary rounded-pill fs-6">
+                                                    @song.PlayOrder
+                                                </span>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">@song.Title</h6>
+                                                <small class="text-muted">
+                                                    @song.Artist <span class="mx-2">•</span> @FormatDuration(song.DurationSeconds)
+                                                </small>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        @onclick="() => RemoveSong(song.Id)"
+                                                        title="Entfernen">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">Keine weiteren Songs in der Warteschlange.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Uid { get; set; } = string.Empty;
+    
+    private Event? currentEvent;
+    private QueueItem? currentSong;
+    private List<QueueItem> upcomingSongs = new();
+    private System.Threading.Timer? refreshTimer;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        currentEvent = await EventService.GetEventByUniqueId(Uid);
+        await LoadQueue();
+        
+        // Auto-refresh every 3 seconds
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadQueue();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+    }
+    
+    private async Task LoadQueue()
+    {
+        var allSongs = await QueueService.GetPlaylistForEvent(Uid);
+        currentSong = allSongs.FirstOrDefault(s => !s.IsPlayed);
+        upcomingSongs = allSongs.Where(s => !s.IsPlayed && s.Id != currentSong?.Id).ToList();
+    }
+    
+    private async Task SkipSong()
+    {
+        if (currentSong != null)
+        {
+            await QueueService.MarkAsPlayed(currentSong.Id);
+            await LoadQueue();
+        }
+    }
+    
+    private async Task RemoveSong(int songId)
+    {
+        await QueueService.RemoveSong(songId);
+        await LoadQueue();
+    }
+    
+    private string FormatDuration(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+    
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+}

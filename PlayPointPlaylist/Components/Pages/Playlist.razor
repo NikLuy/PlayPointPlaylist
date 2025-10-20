@@ -1,0 +1,338 @@
+@page "/playlist/{uid}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using PlayPointPlaylist.Services
+@using PlayPointPlaylist.Models
+@inject QueueService QueueService
+@inject YouTubeApiService YouTubeService
+@inject EventService EventService
+@inject VoterIdentifierService VoterIdentifierService
+
+<PageTitle>Playlist - @eventName</PageTitle>
+
+<div class="container py-4">
+    @if (eventNotFound)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Event nicht gefunden!</strong> Die angeforderte Playlist existiert nicht oder ist nicht mehr aktiv.
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-10">
+                <div class="text-center mb-4">
+                    <h1 class="h3"><i class="bi bi-music-note-beamed me-2"></i>@eventName</h1>
+                    <p class="text-muted">Füge Songs zur Playlist hinzu</p>
+                </div>
+                
+                <div class="card shadow mb-4">
+                    <div class="card-body p-4">
+                        <h5 class="card-title mb-3">
+                            <i class="bi bi-youtube me-2 text-danger"></i>YouTube-Link hinzufügen
+                        </h5>
+                        
+                        <EditForm Model="linkModel" OnValidSubmit="AddFromLink">
+                            <div class="input-group input-group-lg">
+                                <span class="input-group-text">
+                                    <i class="bi bi-link-45deg"></i>
+                                </span>
+                                <InputText @bind-Value="linkModel.Url" 
+                                           class="form-control" 
+                                           placeholder="z.B. https://youtube.com/watch?v=..." 
+                                           disabled="@isAddingFromLink" />
+                                <button type="submit" 
+                                        class="btn btn-primary px-4" 
+                                        disabled="@isAddingFromLink">
+                                    @if (isAddingFromLink)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-plus-lg me-2"></i>
+                                    }
+                                    Hinzufügen
+                                </button>
+                            </div>
+                        </EditForm>
+                        
+                        @if (!string.IsNullOrEmpty(statusMessage))
+                        {
+                            <div class="alert alert-info mt-3 mb-0">
+                                <i class="bi bi-info-circle me-2"></i>@statusMessage
+                            </div>
+                        }
+                    </div>
+                </div>
+                
+                <div class="card shadow">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ul me-2"></i>Aktuelle Playlist
+                            @if (playlist != null && playlist.Any())
+                            {
+                                <span class="badge bg-primary ms-2">@playlist.Count(p => !p.IsPlayed)</span>
+                            }
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (playlist == null)
+                        {
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Lade Playlist...</span>
+                                </div>
+                            </div>
+                        }
+                        else if (!playlist.Any())
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <i class="bi bi-music-note display-4 mb-3 d-block"></i>
+                                <p>Noch keine Songs in der Warteschlange.<br/>Sei der Erste!</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var item in playlist)
+                                {
+                                    <div class="list-group-item @(item.IsPlayed ? "bg-light text-muted" : "")">
+                                        <div class="d-flex align-items-center">
+                                            <div class="flex-shrink-0 me-3">
+                                                <span class="badge @(item.IsPlayed ? "bg-secondary" : "bg-primary") rounded-pill fs-6">
+                                                    @item.PlayOrder
+                                                </span>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1 @(item.IsPlayed ? "text-decoration-line-through" : "")">
+                                                    @item.Title
+                                                </h6>
+                                                <small class="text-muted">
+                                                    @item.Artist
+                                                    <span class="mx-2">•</span>
+                                                    @FormatDuration(item.DurationSeconds)
+                                                    @if (!string.IsNullOrEmpty(item.RequestedBy))
+                                                    {
+                                                        <span class="mx-2">•</span>
+                                                        <i class="bi bi-person-fill"></i> @item.RequestedBy
+                                                    }
+                                                </small>
+                                            </div>
+                                            @if (item.IsPlayed)
+                                            {
+                                                <div class="flex-shrink-0">
+                                                    <span class="badge bg-secondary">
+                                                        <i class="bi bi-check-circle me-1"></i>Gespielt
+                                                    </span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="flex-shrink-0">
+                                                    <div class="btn-group" role="group">
+                                                        <button class="btn btn-sm @(HasVoted(item.Id, true) ? "btn-success" : "btn-outline-success")" 
+                                                                @onclick="() => HandleUpVote(item.Id)"
+                                                                disabled="@HasVoted(item.Id, true)"
+                                                                title="Upvote">
+                                                            <i class="bi bi-hand-thumbs-up-fill"></i>
+                                                            <span class="badge bg-white text-success ms-1">@item.UpVotes</span>
+                                                        </button>
+                                                        <button class="btn btn-sm @(HasVoted(item.Id, false) ? "btn-danger" : "btn-outline-danger")" 
+                                                                @onclick="() => HandleDownVote(item.Id)"
+                                                                disabled="@HasVoted(item.Id, false)"
+                                                                title="Downvote">
+                                                            <i class="bi bi-hand-thumbs-down-fill"></i>
+                                                            <span class="badge bg-white text-danger ms-1">@item.DownVotes</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Uid { get; set; } = string.Empty;
+    
+    private string eventName = "Loading...";
+    private bool eventNotFound = false;
+    private List<QueueItem> playlist = new();
+    private LinkModel linkModel = new();
+    private bool isAddingFromLink = false;
+    private string statusMessage = string.Empty;
+    private System.Threading.Timer? refreshTimer;
+    
+    // Voting tracking - loaded from DB based on voter identifier
+    private Dictionary<int, bool> votedSongs = new();
+    private string voterIdentifier = string.Empty;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var evt = await EventService.GetEventByUniqueId(Uid);
+        if (evt == null || !evt.IsActive)
+        {
+            eventNotFound = true;
+            return;
+        }
+        
+        eventName = evt.Name;
+        voterIdentifier = VoterIdentifierService.GetVoterIdentifier();
+        await LoadPlaylist();
+        await LoadVotesFromDatabase();
+        
+        // Auto-refresh playlist every 5 seconds
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadPlaylist();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+    }
+    
+    private async Task LoadPlaylist()
+    {
+        playlist = await QueueService.GetPlaylistForEvent(Uid);
+    }
+    
+    private async Task AddFromLink()
+    {
+        if (string.IsNullOrWhiteSpace(linkModel.Url))
+            return;
+        
+        isAddingFromLink = true;
+        statusMessage = string.Empty;
+        
+        try
+        {
+            var videoId = ExtractVideoId(linkModel.Url);
+            if (string.IsNullOrEmpty(videoId))
+            {
+                statusMessage = "Ungültiger YouTube-Link!";
+                return;
+            }
+            
+            var videoDetails = await YouTubeService.GetVideoDetails(videoId);
+            if (videoDetails == null)
+            {
+                statusMessage = "Video nicht gefunden!";
+                return;
+            }
+            
+            await QueueService.AddSongToPlaylist(Uid, videoDetails.VideoId, videoDetails.Title, 
+                videoDetails.Artist, videoDetails.DurationSeconds);
+            
+            linkModel.Url = string.Empty;
+            statusMessage = "Song erfolgreich hinzugefügt!";
+            await LoadPlaylist();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Fehler: {ex.Message}";
+        }
+        finally
+        {
+            isAddingFromLink = false;
+        }
+    }
+    
+    // Voting Methods
+    private async Task LoadVotesFromDatabase()
+    {
+        if (playlist.Any())
+        {
+            var songIds = playlist.Select(p => p.Id).ToList();
+            votedSongs = await QueueService.GetUserVotes(songIds, voterIdentifier);
+        }
+    }
+    
+    private bool HasVoted(int songId, bool isUpVote)
+    {
+        return votedSongs.ContainsKey(songId) && votedSongs[songId] == isUpVote;
+    }
+    
+    private async Task HandleUpVote(int songId)
+    {
+        if (!votedSongs.ContainsKey(songId))
+        {
+            var ipAddress = VoterIdentifierService.GetClientIpAddress();
+            var success = await QueueService.UpVote(songId, voterIdentifier, ipAddress);
+            if (success)
+            {
+                votedSongs[songId] = true;
+                await LoadPlaylist();
+            }
+            else
+            {
+                statusMessage = "Du hast bereits für diesen Song gevotet!";
+            }
+        }
+    }
+    
+    private async Task HandleDownVote(int songId)
+    {
+        if (!votedSongs.ContainsKey(songId))
+        {
+            var ipAddress = VoterIdentifierService.GetClientIpAddress();
+            var success = await QueueService.DownVote(songId, voterIdentifier, ipAddress);
+            if (success)
+            {
+                votedSongs[songId] = false;
+                await LoadPlaylist();
+            }
+            else
+            {
+                statusMessage = "Du hast bereits für diesen Song gevotet!";
+            }
+        }
+    }
+    
+    private string ExtractVideoId(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            if (uri.Host.Contains("youtu.be"))
+            {
+                return uri.AbsolutePath.TrimStart('/');
+            }
+            else if (uri.Host.Contains("youtube.com"))
+            {
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                return query["v"] ?? string.Empty;
+            }
+        }
+        catch
+        {
+            // Invalid URL
+        }
+        return string.Empty;
+    }
+    
+    private string FormatDuration(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+    
+    public void Dispose()
+    {
+        refreshTimer?.Dispose();
+    }
+    
+    private class LinkModel
+    {
+        public string Url { get; set; } = string.Empty;
+    }
+}

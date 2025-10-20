@@ -1,0 +1,56 @@
+**/.classpath
+**/.dockerignore
+**/.env
+**/.git
+**/.gitignore
+**/.project
+**/.settings
+**/.toolstarget
+**/.vs
+**/.vscode
+**/*.*proj.user
+**/*.dbmdl
+**/*.jfm
+**/azds.yaml
+**/bin
+**/charts
+**/docker-compose*
+**/Dockerfile*
+**/node_modules
+**/npm-debug.log
+**/obj
+**/secrets.dev.yaml
+**/values.dev.yaml
+
+# Documentation files (except README)
+**/*.md
+!README.md
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Data directory
+**/data/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.sln.iml
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+.LSOverride

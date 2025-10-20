@@ -1,4 +1,4 @@
-ï»¿@page "/admin/play/{uid}"
+@page "/admin/play/{uid}"
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using PlayPointPlaylist.Services
 @using PlayPointPlaylist.Models
@@ -23,7 +23,7 @@
                         <i class="bi bi-play-circle me-2"></i>Host-Steuerung: @currentEvent.Name
                     </h1>
                     <a href="/admin" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left me-2"></i>ZurÃ¼ck
+                        <i class="bi bi-arrow-left me-2"></i>Zurück
                     </a>
                 </div>
                 
@@ -41,17 +41,17 @@
                                     <h4 class="mb-2">@currentSong.Title</h4>
                                     <p class="text-muted mb-3">
                                         <i class="bi bi-person-circle me-1"></i>@currentSong.Artist
-                                        <span class="mx-2">â€¢</span>
+                                        <span class="mx-2">•</span>
                                         <i class="bi bi-clock me-1"></i>@FormatDuration(currentSong.DurationSeconds)
                                     </p>
                                     @if (!string.IsNullOrEmpty(currentSong.RequestedBy))
                                     {
                                         <p class="text-muted">
-                                            <i class="bi bi-person-fill me-1"></i>GewÃ¼nscht von: <strong>@currentSong.RequestedBy</strong>
+                                            <i class="bi bi-person-fill me-1"></i>Gewünscht von: <strong>@currentSong.RequestedBy</strong>
                                         </p>
                                     }
                                     <button class="btn btn-warning btn-lg" @onclick="SkipSong">
-                                        <i class="bi bi-skip-forward-fill me-2"></i>NÃ¤chster Song
+                                        <i class="bi bi-skip-forward-fill me-2"></i>Nächster Song
                                     </button>
                                 </div>
                                 <div class="col-lg-6">
@@ -100,7 +100,7 @@
                                             <div class="flex-grow-1">
                                                 <h6 class="mb-1">@song.Title</h6>
                                                 <small class="text-muted">
-                                                    @song.Artist <span class="mx-2">â€¢</span> @FormatDuration(song.DurationSeconds)
+                                                    @song.Artist <span class="mx-2">•</span> @FormatDuration(song.DurationSeconds)
                                                 </small>
                                             </div>
                                             <div class="flex-shrink-0">

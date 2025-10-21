@@ -23,6 +23,15 @@ public class QueueService
         if (evt == null)
             throw new InvalidOperationException("Event not found or inactive");
         
+        // Check for duplicate - same video in the same event that hasn't been played yet
+        var existingSong = await context.QueueItems
+            .FirstOrDefaultAsync(q => q.EventId == evt.Id 
+                                    && q.YouTubeVideoId == videoId 
+                                    && !q.IsPlayed);
+        
+        if (existingSong != null)
+            throw new InvalidOperationException($"Dieser Song ist bereits in der Playlist (Position #{existingSong.PlayOrder})");
+        
         // Get the next PlayOrder
         var maxOrder = await context.QueueItems
             .Where(q => q.EventId == evt.Id)

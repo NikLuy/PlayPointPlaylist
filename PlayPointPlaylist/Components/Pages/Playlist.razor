@@ -33,27 +33,34 @@
                         </h5>
                         
                         <EditForm Model="linkModel" OnValidSubmit="AddFromLink">
-                            <div class="input-group input-group-lg">
-                                <span class="input-group-text">
-                                    <i class="bi bi-link-45deg"></i>
-                                </span>
-                                <InputText @bind-Value="linkModel.Url" 
-                                           class="form-control" 
-                                           placeholder="z.B. https://youtube.com/watch?v=..." 
-                                           disabled="@isAddingFromLink" />
-                                <button type="submit" 
-                                        class="btn btn-primary px-4" 
-                                        disabled="@isAddingFromLink">
-                                    @if (isAddingFromLink)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-2"></span>
-                                    }
-                                    else
-                                    {
-                                        <i class="bi bi-plus-lg me-2"></i>
-                                    }
-                                    Hinzufügen
-                                </button>
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <div class="input-group input-group-lg">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-link-45deg"></i>
+                                        </span>
+                                        <InputText @bind-Value="linkModel.Url" 
+                                                   class="form-control" 
+                                                   placeholder="z.B. https://youtube.com/watch?v=..." 
+                                                   disabled="@isAddingFromLink" />
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" 
+                                            class="btn btn-primary btn-lg w-100" 
+                                            disabled="@isAddingFromLink">
+                                        @if (isAddingFromLink)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-2"></span>
+                                            <span>Wird hinzugefügt...</span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-plus-lg me-2"></i>
+                                            <span>Hinzufügen</span>
+                                        }
+                                    </button>
+                                </div>
                             </div>
                         </EditForm>
                         
@@ -65,6 +72,31 @@
                         }
                     </div>
                 </div>
+                
+                @* YouTube Player *@
+                @if (currentPlayingId.HasValue)
+                {
+                    <div class="card shadow mb-4">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-play-circle-fill me-2 text-primary"></i>Jetzt spielt
+                                </h6>
+                                <button class="btn btn-sm btn-danger" @onclick="StopPlaying">
+                                    <i class="bi bi-stop-circle-fill me-1"></i>Stop
+                                </button>
+                            </div>
+                            <div class="ratio ratio-16x9">
+                                <iframe id="youtubePlayer"
+                                        src="https://www.youtube.com/embed/@currentVideoId?autoplay=1&enablejsapi=1"
+                                        title="YouTube video player"
+                                        frameborder="0"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowfullscreen></iframe>
+                            </div>
+                        </div>
+                    </div>
+                }
                 
                 <div class="card shadow">
                     <div class="card-header bg-white py-3">
@@ -97,18 +129,21 @@
                             <div class="list-group list-group-flush">
                                 @foreach (var item in playlist)
                                 {
-                                    <div class="list-group-item @(item.IsPlayed ? "bg-light text-muted" : "")">
-                                        <div class="d-flex align-items-center">
-                                            <div class="flex-shrink-0 me-3">
+                                    <div class="list-group-item @(item.IsPlayed ? "bg-light text-muted" : "") py-3">
+                                        <div class="row g-2">
+                                            <!-- Song Number -->
+                                            <div class="col-auto">
                                                 <span class="badge @(item.IsPlayed ? "bg-secondary" : "bg-primary") rounded-pill fs-6">
                                                     @item.PlayOrder
                                                 </span>
                                             </div>
-                                            <div class="flex-grow-1">
+                                            
+                                            <!-- Song Info -->
+                                            <div class="col">
                                                 <h6 class="mb-1 @(item.IsPlayed ? "text-decoration-line-through" : "")">
                                                     @item.Title
                                                 </h6>
-                                                <small class="text-muted">
+                                                <small class="text-muted d-block">
                                                     @item.Artist
                                                     <span class="mx-2">•</span>
                                                     @FormatDuration(item.DurationSeconds)
@@ -118,36 +153,54 @@
                                                         <i class="bi bi-person-fill"></i> @item.RequestedBy
                                                     }
                                                 </small>
-                                            </div>
-                                            @if (item.IsPlayed)
-                                            {
-                                                <div class="flex-shrink-0">
-                                                    <span class="badge bg-secondary">
-                                                        <i class="bi bi-check-circle me-1"></i>Gespielt
-                                                    </span>
-                                                </div>
-                                            }
-                                            else
-                                            {
-                                                <div class="flex-shrink-0">
+                                                
+                                                <!-- Action Buttons - Mobile: Stack below song info -->
+                                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                                    <!-- Play/YouTube Buttons -->
                                                     <div class="btn-group" role="group">
-                                                        <button class="btn btn-sm @(HasVoted(item.Id, true) ? "btn-success" : "btn-outline-success")" 
-                                                                @onclick="() => HandleUpVote(item.Id)"
-                                                                disabled="@HasVoted(item.Id, true)"
-                                                                title="Upvote">
-                                                            <i class="bi bi-hand-thumbs-up-fill"></i>
-                                                            <span class="badge bg-white text-success ms-1">@item.UpVotes</span>
+                                                        <button class="btn btn-sm @(currentPlayingId == item.Id ? "btn-danger" : "btn-outline-primary")" 
+                                                                @onclick="() => TogglePlay(item.Id, item.YouTubeVideoId)"
+                                                                title="@(currentPlayingId == item.Id ? "Stop" : "Play")">
+                                                            <i class="bi bi-@(currentPlayingId == item.Id ? "stop-circle-fill" : "play-circle-fill")"></i>
+                                                            <span class="d-none d-sm-inline ms-1">@(currentPlayingId == item.Id ? "Stop" : "Play")</span>
                                                         </button>
-                                                        <button class="btn btn-sm @(HasVoted(item.Id, false) ? "btn-danger" : "btn-outline-danger")" 
-                                                                @onclick="() => HandleDownVote(item.Id)"
-                                                                disabled="@HasVoted(item.Id, false)"
-                                                                title="Downvote">
-                                                            <i class="bi bi-hand-thumbs-down-fill"></i>
-                                                            <span class="badge bg-white text-danger ms-1">@item.DownVotes</span>
-                                                        </button>
+                                                        <a href="https://www.youtube.com/watch?v=@item.YouTubeVideoId" 
+                                                           target="_blank" 
+                                                           class="btn btn-sm btn-outline-danger"
+                                                           title="Auf YouTube öffnen">
+                                                            <i class="bi bi-youtube"></i>
+                                                            <span class="d-none d-sm-inline ms-1">YouTube</span>
+                                                        </a>
                                                     </div>
+                                                    
+                                                    @if (item.IsPlayed)
+                                                    {
+                                                        <span class="badge bg-secondary align-self-center">
+                                                            <i class="bi bi-check-circle me-1"></i>Gespielt
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <!-- Voting Buttons -->
+                                                        <div class="btn-group" role="group">
+                                                            <button class="btn btn-sm @(HasVoted(item.Id, true) ? "btn-success" : "btn-outline-success")" 
+                                                                    @onclick="() => HandleUpVote(item.Id)"
+                                                                    disabled="@HasVoted(item.Id, true)"
+                                                                    title="Upvote">
+                                                                <i class="bi bi-hand-thumbs-up-fill"></i>
+                                                                <span class="badge bg-white text-success ms-1">@item.UpVotes</span>
+                                                            </button>
+                                                            <button class="btn btn-sm @(HasVoted(item.Id, false) ? "btn-danger" : "btn-outline-danger")" 
+                                                                    @onclick="() => HandleDownVote(item.Id)"
+                                                                    disabled="@HasVoted(item.Id, false)"
+                                                                    title="Downvote">
+                                                                <i class="bi bi-hand-thumbs-down-fill"></i>
+                                                                <span class="badge bg-white text-danger ms-1">@item.DownVotes</span>
+                                                            </button>
+                                                        </div>
+                                                    }
                                                 </div>
-                                            }
+                                            </div>
                                         </div>
                                     </div>
                                 }
@@ -161,20 +214,24 @@
 </div>
 
 @code {
-    [Parameter]
-    public string Uid { get; set; } = string.Empty;
+[Parameter]
+public string Uid { get; set; } = string.Empty;
     
-    private string eventName = "Loading...";
-    private bool eventNotFound = false;
-    private List<QueueItem> playlist = new();
-    private LinkModel linkModel = new();
-    private bool isAddingFromLink = false;
-    private string statusMessage = string.Empty;
-    private System.Threading.Timer? refreshTimer;
+private string eventName = "Loading...";
+private bool eventNotFound = false;
+private List<QueueItem> playlist = new();
+private LinkModel linkModel = new();
+private bool isAddingFromLink = false;
+private string statusMessage = string.Empty;
+private System.Threading.Timer? refreshTimer;
     
-    // Voting tracking - loaded from DB based on voter identifier
-    private Dictionary<int, bool> votedSongs = new();
-    private string voterIdentifier = string.Empty;
+// Voting tracking - loaded from DB based on voter identifier
+private Dictionary<int, bool> votedSongs = new();
+private string voterIdentifier = string.Empty;
+    
+// Audio player tracking
+private int? currentPlayingId = null;
+private string currentVideoId = string.Empty;
     
     protected override async Task OnInitializedAsync()
     {
@@ -324,6 +381,27 @@
     {
         var ts = TimeSpan.FromSeconds(seconds);
         return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+    
+    private void TogglePlay(int songId, string videoId)
+    {
+        if (currentPlayingId == songId)
+        {
+            // Stop current song
+            StopPlaying();
+        }
+        else
+        {
+            // Play new song - embed on page
+            currentPlayingId = songId;
+            currentVideoId = videoId;
+        }
+    }
+    
+    private void StopPlaying()
+    {
+        currentPlayingId = null;
+        currentVideoId = string.Empty;
     }
     
     public void Dispose()

@@ -2,10 +2,13 @@
 @rendermode @(new InteractiveServerRenderMode(prerender: false))
 @using PlayPointPlaylist.Services
 @using PlayPointPlaylist.Models
+@using Microsoft.JSInterop
+@using System.Text
 @inject EventService EventService
 @inject QueueService QueueService
 @inject AdminAuthService AuthService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Admin - PlayPointPlaylist</PageTitle>
 
@@ -170,6 +173,11 @@
                                                                 @onclick="() => ShowPlaylistManager(evt)"
                                                                 title="Playlist verwalten">
                                                             <i class="bi bi-list-stars"></i>
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-secondary" 
+                                                                @onclick="() => ExportPlaylistUrls(evt)"
+                                                                title="URLs exportieren">
+                                                            <i class="bi bi-download"></i>
                                                         </button>
                                                         <button class="btn btn-sm btn-outline-warning" 
                                                                 @onclick="() => ToggleStatus(evt.Id)"
@@ -520,6 +528,40 @@ private async Task HandleLogout()
             await QueueService.ResetAllPlayedForEvent(selectedEvent.UniqueId);
             await LoadPlaylist();
             await LoadEvents(); // Refresh event list to update song count
+        }
+    }
+    
+    private async Task ExportPlaylistUrls(Event evt)
+    {
+        try
+        {
+            var urls = await QueueService.GetAllVideoUrlsForEvent(evt.UniqueId);
+            
+            if (!urls.Any())
+            {
+                errorMessage = "Keine Songs in der Playlist zum Exportieren!";
+                successMessage = string.Empty;
+                return;
+            }
+            
+            // Create text content with all URLs
+            var content = string.Join("\n", urls);
+            var fileName = $"playlist_{evt.Name.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            
+            // Convert to bytes
+            var bytes = Encoding.UTF8.GetBytes(content);
+            var base64 = Convert.ToBase64String(bytes);
+            
+            // Use JS Interop to download file
+            await JSRuntime.InvokeVoidAsync("downloadFile", fileName, base64);
+            
+            successMessage = $"Playlist erfolgreich exportiert! ({urls.Count} URLs)";
+            errorMessage = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Exportieren: {ex.Message}";
+            successMessage = string.Empty;
         }
     }
     

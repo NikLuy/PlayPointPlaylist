@@ -2,8 +2,45 @@
 
 A Blazor-based web application for managing YouTube playlists.
 
-## Prerequisites
+## Development Setup
 
+### Prerequisites
+- .NET 9 SDK
+- YouTube Data API v3 Key ([Get one here](https://console.cloud.google.com/apis/credentials))
+
+### Local Development with User Secrets
+
+For local development, this project uses **User Secrets** to store sensitive configuration (not `.env` files).
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/NikLuy/PlayPointPlaylist
+   cd PlayPointPlaylist
+   ```
+
+2. **Configure User Secrets**:
+   ```bash
+   cd PlayPointPlaylist
+   dotnet user-secrets set "YouTubeApi:ApiKey" "your_youtube_api_key_here"
+   dotnet user-secrets set "AdminSettings:Password" "your_secure_admin_password_here"
+   ```
+
+3. **Run the application**:
+   ```bash
+   dotnet run
+   ```
+
+4. **Access the application**:
+   - Open your browser to https://localhost:5001 or http://localhost:5000
+
+### Why User Secrets?
+User Secrets are stored outside your project directory and are **never committed to Git**. This is the recommended approach for development in .NET projects.
+
+---
+
+## Production Deployment with Docker
+
+### Prerequisites
 - [Docker](https://www.docker.com/get-started) (version 20.10 or higher)
 - [Docker Compose](https://docs.docker.com/compose/install/) (version 1.29 or higher)
 - YouTube Data API v3 Key ([Get one here](https://console.cloud.google.com/apis/credentials))
@@ -126,6 +163,26 @@ docker run -d \
 
 The application uses SQLite as its database. The database file is stored in the `./data` directory, which is mounted as a volume in the Docker container. This ensures that your data persists even if the container is removed or recreated.
 
+---
+
+## Local Development Notes
+
+### User Secrets vs .env Files
+- **Development**: Use `dotnet user-secrets` (already configured in the project)
+- **Docker/Production**: Use `.env` files (ignored by Git)
+
+### View your User Secrets
+```bash
+cd PlayPointPlaylist
+dotnet user-secrets list
+```
+
+### Database Location
+- **Development**: SQLite database is created in the project directory
+- **Docker**: Database is persisted in the `./data` volume
+
+---
+
 ## Troubleshooting
 
 ### Container won't start
@@ -157,10 +214,6 @@ If your admin password contains special characters (`$`, `!`, `@`, `` ` ``), mak
 ADMIN_PASSWORD='F7l6mENBp$GV57WrJgrzy5U!rGE@'
 ```
 Without quotes, the `$` character will be interpreted as a variable expansion by Docker Compose.
-
-## Development
-
-For local development without Docker, see the development setup instructions in the project documentation.
 
 ## Technology Stack
 

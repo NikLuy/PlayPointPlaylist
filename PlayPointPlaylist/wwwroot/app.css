@@ -36,3 +36,61 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* Mobile-friendly playlist styles */
+@media (max-width: 576px) {
+    /* Adjust card padding on mobile */
+    .card-body {
+        padding: 1rem !important;
+    }
+    
+    /* Make heading smaller on mobile */
+    .card-title {
+        font-size: 1.1rem;
+    }
+    
+    /* Improve button sizing on mobile */
+    .btn-sm {
+        font-size: 0.85rem;
+        padding: 0.35rem 0.65rem;
+    }
+    
+    /* Better badge visibility */
+    .badge {
+        font-size: 0.8rem;
+    }
+    
+    /* Improve list item spacing */
+    .list-group-item {
+        padding: 0.75rem !important;
+    }
+    
+    /* Song title should wrap properly */
+    .list-group-item h6 {
+        font-size: 0.95rem;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+    
+    /* Small text even smaller on mobile */
+    .list-group-item small {
+        font-size: 0.75rem;
+    }
+}
+
+/* Improve button group wrapping */
+.btn-group {
+    flex-wrap: nowrap;
+}
+
+/* Better gap between button groups on mobile */
+.d-flex.gap-2 {
+    gap: 0.5rem !important;
+}
+
+/* Ensure action buttons don't wrap awkwardly */
+@media (max-width: 576px) {
+    .btn-group .btn {
+        white-space: nowrap;
+    }
+}

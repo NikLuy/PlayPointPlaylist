@@ -231,4 +231,23 @@ public class QueueService
         
         return votes;
     }
+    
+    public async Task<List<string>> GetAllVideoUrlsForEvent(string eventUid)
+    {
+        await using var context = await _contextFactory.CreateDbContextAsync();
+        
+        var evt = await context.Events
+            .FirstOrDefaultAsync(e => e.UniqueId == eventUid);
+        
+        if (evt == null)
+            return new List<string>();
+        
+        var videoIds = await context.QueueItems
+            .Where(q => q.EventId == evt.Id)
+            .OrderBy(q => q.PlayOrder)
+            .Select(q => q.YouTubeVideoId)
+            .ToListAsync();
+        
+        return videoIds.Select(id => $"https://www.youtube.com/watch?v={id}").ToList();
+    }
 }

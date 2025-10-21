@@ -32,6 +32,18 @@ bld/
 *.db-shm
 *.db-wal
 
+# Environment variables with secrets
+.env
+.env.local
+.env.*.local
+
+# Docker override files
+docker-compose.override.yml
+docker-compose.yml
+
+# Data directory
+data/
+
 # User secrets and appsettings
 appsettings.Development.json
 secrets.json

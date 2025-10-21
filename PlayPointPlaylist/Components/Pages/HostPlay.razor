@@ -71,10 +71,25 @@ else
                                     }
                                     @if (isAuthenticated)
                                     {
-                                        <button class="btn btn-warning btn-lg" @onclick="SkipSong">
+                                        <button class="btn btn-warning btn-lg mb-3" @onclick="SkipSong">
                                             <i class="bi bi-skip-forward-fill me-2"></i>Nächster Song
                                         </button>
                                     }
+                                    
+                                    @* Progress Bar *@
+                                    <div class="progress mb-2" style="height: 8px;">
+                                        <div class="progress-bar bg-primary" 
+                                             role="progressbar" 
+                                             style="width: @currentProgress%"
+                                             aria-valuenow="@currentProgress" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <small class="text-muted">@currentTimeDisplay</small>
+                                        <small class="text-muted">@FormatDuration(currentSong.DurationSeconds)</small>
+                                    </div>
                                 </div>
                                 <div class="col-lg-6">
                                     <div class="ratio ratio-16x9">
@@ -199,45 +214,108 @@ private bool showLoginModal = false;
 private string loginErrorMessage = string.Empty;
 private LoginModel loginModel = new();
     
-// Track current video to avoid reloading
-private string? currentVideoId = null;
-private bool wasAuthenticated = false;
+    // Track current video to avoid reloading
+    private string? currentVideoId = null;
+    private bool wasAuthenticated = false;
+    private DotNetObjectReference<HostPlay>? dotNetHelper;
     
-protected override async Task OnInitializedAsync()
-{
-    // Check if user is authenticated
-    isAuthenticated = await AuthService.IsAuthenticatedAsync();
-    wasAuthenticated = isAuthenticated;
-        
-    currentEvent = await EventService.GetEventByUniqueId(Uid);
-    await LoadQueue();
-        
-    // Auto-refresh every 3 seconds
-    refreshTimer = new System.Threading.Timer(async _ =>
-    {
-        await InvokeAsync(async () =>
-        {
-            await LoadQueue();
-            StateHasChanged();
-        });
-    }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
-}
+    // Progress tracking
+    private double currentProgress = 0;
+    private string currentTimeDisplay = "0:00";
+    private System.Threading.Timer? progressTimer;
     
-protected override async Task OnAfterRenderAsync(bool firstRender)
-{
-    if (currentSong != null && currentSong.YouTubeVideoId != currentVideoId)
+    protected override async Task OnInitializedAsync()
     {
-        // New song - load it
-        currentVideoId = currentSong.YouTubeVideoId;
-        await JSRuntime.InvokeVoidAsync("initializeYouTubePlayer", currentVideoId, !isAuthenticated);
-    }
-    else if (wasAuthenticated != isAuthenticated && currentSong != null)
-    {
-        // Auth state changed - update controls visibility (for next video)
+        // Check if user is authenticated
+        isAuthenticated = await AuthService.IsAuthenticatedAsync();
         wasAuthenticated = isAuthenticated;
-        await JSRuntime.InvokeVoidAsync("updateYouTubePlayerControls", !isAuthenticated);
+        
+        currentEvent = await EventService.GetEventByUniqueId(Uid);
+        await LoadQueue();
+        
+        // Create .NET object reference for JavaScript callbacks
+        dotNetHelper = DotNetObjectReference.Create(this);
+        
+        // Auto-refresh queue every 3 seconds
+        refreshTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadQueue();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(3));
+        
+        // Update progress bar every 500ms
+        progressTimer = new System.Threading.Timer(async _ =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await UpdateProgress();
+            });
+        }, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
     }
-}
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && dotNetHelper != null)
+        {
+            // Register the .NET helper with JavaScript
+            await JSRuntime.InvokeVoidAsync("setDotNetHelper", dotNetHelper);
+        }
+        
+        if (currentSong != null && currentSong.YouTubeVideoId != currentVideoId)
+        {
+            // New song - load it
+            currentVideoId = currentSong.YouTubeVideoId;
+            await JSRuntime.InvokeVoidAsync("initializeYouTubePlayer", currentVideoId, !isAuthenticated);
+        }
+        else if (wasAuthenticated != isAuthenticated && currentSong != null)
+        {
+            // Auth state changed - update controls visibility (for next video)
+            wasAuthenticated = isAuthenticated;
+            await JSRuntime.InvokeVoidAsync("updateYouTubePlayerControls", !isAuthenticated);
+        }
+    }
+    
+    [JSInvokable]
+    public async Task OnVideoEnded()
+    {
+        // Automatically skip to next song when current one ends
+        await SkipSong();
+    }
+    
+    private async Task UpdateProgress()
+    {
+        if (currentSong != null)
+        {
+            try
+            {
+                var timeData = await JSRuntime.InvokeAsync<double[]>("getPlayerTime");
+                if (timeData != null && timeData.Length == 2)
+                {
+                    var currentTime = timeData[0];
+                    var duration = timeData[1];
+                    
+                    if (duration > 0)
+                    {
+                        currentProgress = (currentTime / duration) * 100;
+                        currentTimeDisplay = FormatDuration((int)currentTime);
+                        StateHasChanged();
+                    }
+                }
+            }
+            catch
+            {
+                // Player not ready yet or error getting time
+            }
+        }
+        else
+        {
+            currentProgress = 0;
+            currentTimeDisplay = "0:00";
+        }
+    }
     
     private async Task LoadQueue()
     {
@@ -248,7 +326,7 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
     
     private async Task SkipSong()
     {
-        if (currentSong != null && isAuthenticated)
+        if (currentSong != null)
         {
             await QueueService.MarkAsPlayed(currentSong.Id);
             currentVideoId = null; // Reset to trigger new video load
@@ -307,6 +385,10 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
     public async ValueTask DisposeAsync()
     {
         refreshTimer?.Dispose();
+        progressTimer?.Dispose();
+        
+        // Dispose .NET object reference
+        dotNetHelper?.Dispose();
         
         // Stop the YouTube player when leaving the page
         try
